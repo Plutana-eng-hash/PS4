@@ -36,14 +36,14 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make zip git cmake build-essential python3
+          sudo apt-get install -y clang lld make cmake zip git build-essential python3
 
       - name: Restore OpenOrbis toolchain cache
         id: cache-toolchain
         uses: actions/cache@v4
         with:
           path: toolchain
-          key: openorbis-toolchain-v2
+          key: openorbis-toolchain-v3
 
       - name: Fetch OpenOrbis toolchain source
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
@@ -54,13 +54,27 @@ jobs:
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         run: |
           cd toolchain-src
-          make
-          cd ..
-          built=$(find toolchain-src -maxdepth 3 -type d -name PS4Toolchain | head -n 1)
-          if [ -z "$built" ]; then
-            echo "PS4Toolchain directory was not produced by the toolchain build."
+          if [ -f Makefile ] || [ -f makefile ]; then
+            echo "Building with make"
+            make
+          elif [ -f CMakeLists.txt ]; then
+            echo "Building with cmake"
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+            cmake --build build --parallel
+          else
+            echo "No Makefile or CMakeLists.txt found in toolchain-src. Contents:"
+            ls -la
             exit 1
           fi
+          cd "$GITHUB_WORKSPACE"
+          built=$(find toolchain-src -maxdepth 6 -type d -name PS4Toolchain | head -n 1)
+          if [ -z "$built" ]; then
+            echo "PS4Toolchain directory was not produced by the toolchain build."
+            echo "Directories found under toolchain-src:"
+            find toolchain-src -maxdepth 4 -type d | head -n 50
+            exit 1
+          fi
+          echo "Found toolchain at $built"
           mkdir -p toolchain
           rm -rf "$OO_PS4_TOOLCHAIN"
           cp -r "$built" "$OO_PS4_TOOLCHAIN"
