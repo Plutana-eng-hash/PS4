@@ -1,8 +1,8 @@
 TARGET            := ps4_overlay_plugin
 OO_PS4_TOOLCHAIN  ?= $(HOME)/OpenOrbis/PS4Toolchain
 
-CC      ?= clang
-LD      ?= ld.lld
+CC      := clang
+LD      := ld.lld
 PRX_GEN ?= $(OO_PS4_TOOLCHAIN)/bin/linux/prx-gen
 
 SRC_DIR   := src
