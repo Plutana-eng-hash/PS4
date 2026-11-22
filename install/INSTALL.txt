@@ -1,0 +1,27 @@
+PS4 Overlay Framework - Installation Notes
+==========================================
+
+Files in this package
+  ps4_overlay_plugin.sprx   compiled GoldHEN plugin module
+  ovl_config.ini            general settings (window, colors, speeds, HUD)
+  offsets.ini               per-title offset table (unset by default)
+  README.md                 build and project notes
+
+Install
+  1. Copy ps4_overlay_plugin.sprx to the GoldHEN plugins folder on the console.
+  2. Create the folder /data/GoldHEN/plugins/ps4_overlay_plugin/ and copy
+     ovl_config.ini and offsets.ini into it.
+  3. Enable the plugin in the GoldHEN plugin list for the title you test.
+  4. Launch the title. Press Circle + Triangle together to show or hide the menu.
+
+Controls
+  Circle + Triangle   show / hide menu
+  Left stick          move window
+  L1 / R1             previous / next tab
+  Right stick Y       select row
+  Right stick X       adjust value (bools toggle)
+
+Status
+  The overlay draws nothing until offsets.ini has a valid module_base and
+  render_present, and a render hook backend is supplied in code. Without
+  these, the plugin loads and does nothing visible. This is intentional.

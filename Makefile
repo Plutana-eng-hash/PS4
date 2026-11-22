@@ -1,0 +1,53 @@
+TARGET            := ps4_overlay_plugin
+OO_PS4_TOOLCHAIN  ?= $(HOME)/OpenOrbis/PS4Toolchain
+
+CC      ?= clang
+LD      ?= ld.lld
+PRX_GEN ?= $(OO_PS4_TOOLCHAIN)/bin/linux/prx-gen
+
+SRC_DIR   := src
+INC_DIR   := include
+BUILD_DIR := build
+DIST_DIR  := dist
+
+SRCS := $(wildcard $(SRC_DIR)/*.c)
+OBJS := $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
+ELF  := $(BUILD_DIR)/$(TARGET).elf
+SPRX := $(BUILD_DIR)/$(TARGET).sprx
+
+CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -fvisibility=hidden \
+          -fno-stack-protector -O2 -Wall -Wextra -std=c11 \
+          -I$(INC_DIR) -I$(OO_PS4_TOOLCHAIN)/include
+
+LIBS := -L$(OO_PS4_TOOLCHAIN)/lib -lkernel -lSceLibcInternal
+
+.PHONY: all clean package check-toolchain
+
+check-toolchain:
+	@test -d "$(OO_PS4_TOOLCHAIN)/include" || { echo "OO_PS4_TOOLCHAIN is not a valid toolchain: $(OO_PS4_TOOLCHAIN)"; exit 1; }
+
+all: check-toolchain $(SPRX)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(ELF): $(OBJS)
+	$(LD) -m elf_x86_64 -shared -Bsymbolic -e module_start -o $@ $(OBJS) $(LIBS)
+
+$(SPRX): $(ELF)
+	$(PRX_GEN) $< $@
+
+package: all
+	rm -rf $(DIST_DIR)/pkg
+	mkdir -p $(DIST_DIR)/pkg
+	cp $(SPRX) $(DIST_DIR)/pkg/
+	cp config/*.ini $(DIST_DIR)/pkg/
+	cp install/INSTALL.txt README.md $(DIST_DIR)/pkg/
+	cd $(DIST_DIR)/pkg && zip -r ../$(TARGET).zip .
+	@echo "Packaged $(DIST_DIR)/$(TARGET).zip"
+
+clean:
+	rm -rf $(BUILD_DIR) $(DIST_DIR)
