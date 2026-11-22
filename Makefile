@@ -20,6 +20,7 @@ CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -fvisibility=hidden \
           -I$(INC_DIR) -I$(OO_PS4_TOOLCHAIN)/include
 
 LIBS := -L$(OO_PS4_TOOLCHAIN)/lib -lkernel -lSceLibcInternal
+LINK_SCRIPT := $(OO_PS4_TOOLCHAIN)/link.x
 
 .PHONY: all clean package check-toolchain
 
@@ -35,7 +36,8 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(ELF): $(OBJS)
-	$(LD) -m elf_x86_64 -shared -Bsymbolic -e module_start -o $@ $(OBJS) $(LIBS)
+	@test -f "$(LINK_SCRIPT)" || { echo "Linker script not found: $(LINK_SCRIPT)"; exit 1; }
+	$(LD) -m elf_x86_64 -shared -Bsymbolic -T $(LINK_SCRIPT) -e module_start -o $@ $(OBJS) $(LIBS)
 
 $(SPRX): $(ELF)
 	@test -x "$(PRX_GEN)" || { echo "SPRX converter not found: $(PRX_GEN)"; echo "Contents of $(OO_PS4_TOOLCHAIN)/bin/linux:"; ls -la "$(OO_PS4_TOOLCHAIN)/bin/linux" 2>/dev/null; echo "Contents of $(OO_PS4_TOOLCHAIN)/scripts:"; ls -la "$(OO_PS4_TOOLCHAIN)/scripts" 2>/dev/null; echo "Set PRX_GEN to the converter path to continue."; exit 1; }
