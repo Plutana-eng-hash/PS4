@@ -72,6 +72,18 @@ jobs:
             chmod -R +x "$root/bin/linux"
           fi
 
+      - name: Show toolchain library sample build recipe
+        if: always()
+        run: |
+          echo "Samples directory:"
+          ls "$OO_PS4_TOOLCHAIN/samples" 2>/dev/null || ls toolchain/OpenOrbis/PS4Toolchain/samples 2>/dev/null || echo "no samples dir found"
+          for mk in $(find "$OO_PS4_TOOLCHAIN/samples" -name Makefile 2>/dev/null); do
+            if grep -qi 'prx\|sprx\|lib' "$mk"; then
+              echo "=== $mk ==="
+              cat "$mk"
+            fi
+          done
+
       - name: Build SPRX
         run: make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
 
