@@ -38,6 +38,7 @@ $(ELF): $(OBJS)
 	$(LD) -m elf_x86_64 -shared -Bsymbolic -e module_start -o $@ $(OBJS) $(LIBS)
 
 $(SPRX): $(ELF)
+	@test -x "$(PRX_GEN)" || { echo "SPRX converter not found: $(PRX_GEN)"; echo "Contents of $(OO_PS4_TOOLCHAIN)/bin/linux:"; ls -la "$(OO_PS4_TOOLCHAIN)/bin/linux" 2>/dev/null; echo "Contents of $(OO_PS4_TOOLCHAIN)/scripts:"; ls -la "$(OO_PS4_TOOLCHAIN)/scripts" 2>/dev/null; echo "Set PRX_GEN to the converter path to continue."; exit 1; }
 	$(PRX_GEN) $< $@
 
 package: all
