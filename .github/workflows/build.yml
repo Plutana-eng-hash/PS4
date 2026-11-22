@@ -1,0 +1,87 @@
+name: Build PS4 Overlay Plugin
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  OO_PS4_TOOLCHAIN: ${{ github.workspace }}/toolchain/PS4Toolchain
+
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install host compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make
+
+      - name: Compile sources against host headers
+        run: |
+          for f in src/*.c; do
+            gcc -std=c11 -fsyntax-only -Iinclude -Wall -Wextra "$f"
+          done
+
+  build:
+    needs: check
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld make zip git cmake build-essential python3
+
+      - name: Restore OpenOrbis toolchain cache
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: toolchain
+          key: openorbis-toolchain-v2
+
+      - name: Fetch OpenOrbis toolchain source
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git toolchain-src
+
+      - name: Build OpenOrbis toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          cd toolchain-src
+          make
+          cd ..
+          built=$(find toolchain-src -maxdepth 3 -type d -name PS4Toolchain | head -n 1)
+          if [ -z "$built" ]; then
+            echo "PS4Toolchain directory was not produced by the toolchain build."
+            exit 1
+          fi
+          mkdir -p toolchain
+          rm -rf "$OO_PS4_TOOLCHAIN"
+          cp -r "$built" "$OO_PS4_TOOLCHAIN"
+
+      - name: Verify toolchain layout
+        run: |
+          if [ ! -d "$OO_PS4_TOOLCHAIN/include" ]; then
+            echo "Toolchain include directory missing at $OO_PS4_TOOLCHAIN"
+            ls -la toolchain || true
+            exit 1
+          fi
+
+      - name: Build SPRX
+        run: make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
+
+      - name: Package zip
+        run: make package OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps4_overlay_plugin
+          path: dist/ps4_overlay_plugin.zip
+          if-no-files-found: error
