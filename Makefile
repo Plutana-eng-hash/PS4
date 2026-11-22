@@ -3,7 +3,7 @@ OO_PS4_TOOLCHAIN  ?= $(HOME)/OpenOrbis/PS4Toolchain
 
 CC      := clang
 LD      := ld.lld
-PRX_GEN ?= $(OO_PS4_TOOLCHAIN)/bin/linux/prx-gen
+PRX_GEN ?= $(OO_PS4_TOOLCHAIN)/bin/linux/create-fself
 
 SRC_DIR   := src
 INC_DIR   := include
@@ -39,7 +39,7 @@ $(ELF): $(OBJS)
 
 $(SPRX): $(ELF)
 	@test -x "$(PRX_GEN)" || { echo "SPRX converter not found: $(PRX_GEN)"; echo "Contents of $(OO_PS4_TOOLCHAIN)/bin/linux:"; ls -la "$(OO_PS4_TOOLCHAIN)/bin/linux" 2>/dev/null; echo "Contents of $(OO_PS4_TOOLCHAIN)/scripts:"; ls -la "$(OO_PS4_TOOLCHAIN)/scripts" 2>/dev/null; echo "Set PRX_GEN to the converter path to continue."; exit 1; }
-	$(PRX_GEN) $< $@
+	$(PRX_GEN) -in $< -out $@ || { echo "create-fself failed. Usage output follows:"; "$(PRX_GEN)" --help; exit 1; }
 
 package: all
 	rm -rf $(DIST_DIR)/pkg
