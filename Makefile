@@ -39,7 +39,8 @@ $(ELF): $(OBJS)
 
 $(SPRX): $(ELF)
 	@test -x "$(PRX_GEN)" || { echo "SPRX converter not found: $(PRX_GEN)"; echo "Contents of $(OO_PS4_TOOLCHAIN)/bin/linux:"; ls -la "$(OO_PS4_TOOLCHAIN)/bin/linux" 2>/dev/null; echo "Contents of $(OO_PS4_TOOLCHAIN)/scripts:"; ls -la "$(OO_PS4_TOOLCHAIN)/scripts" 2>/dev/null; echo "Set PRX_GEN to the converter path to continue."; exit 1; }
-	$(PRX_GEN) -in $< -out $@ || { echo "create-fself failed. Usage output follows:"; "$(PRX_GEN)" --help; exit 1; }
+	$(PRX_GEN) -in $< -out $@ -lib $(BUILD_DIR)/$(TARGET).stub.prx -libname $(TARGET) -ptype fake || { echo "create-fself failed. Usage output follows:"; "$(PRX_GEN)" --help; exit 1; }
+	@test -s $@ || { echo "create-fself reported success but $@ is empty"; exit 1; }
 
 package: all
 	rm -rf $(DIST_DIR)/pkg
