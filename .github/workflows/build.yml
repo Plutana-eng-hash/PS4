@@ -5,9 +5,6 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  OO_PS4_TOOLCHAIN: ${{ github.workspace }}/toolchain/PS4Toolchain
-
 jobs:
   check:
     runs-on: ubuntu-22.04
@@ -36,55 +33,43 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld make cmake zip git build-essential python3
+          sudo apt-get install -y clang lld make zip python3 curl
 
       - name: Restore OpenOrbis toolchain cache
         id: cache-toolchain
         uses: actions/cache@v4
         with:
           path: toolchain
-          key: openorbis-toolchain-v3
+          key: openorbis-release-v4
 
-      - name: Fetch OpenOrbis toolchain source
+      - name: Download latest OpenOrbis toolchain release
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --recursive https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain.git toolchain-src
-
-      - name: Build OpenOrbis toolchain
-        if: steps.cache-toolchain.outputs.cache-hit != 'true'
-        run: |
-          cd toolchain-src
-          if [ -f Makefile ] || [ -f makefile ]; then
-            echo "Building with make"
-            make
-          elif [ -f CMakeLists.txt ]; then
-            echo "Building with cmake"
-            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-            cmake --build build --parallel
-          else
-            echo "No Makefile or CMakeLists.txt found in toolchain-src. Contents:"
-            ls -la
-            exit 1
-          fi
-          cd "$GITHUB_WORKSPACE"
-          built=$(find toolchain-src -maxdepth 6 -type d -name PS4Toolchain | head -n 1)
-          if [ -z "$built" ]; then
-            echo "PS4Toolchain directory was not produced by the toolchain build."
-            echo "Directories found under toolchain-src:"
-            find toolchain-src -maxdepth 4 -type d | head -n 50
-            exit 1
-          fi
-          echo "Found toolchain at $built"
           mkdir -p toolchain
-          rm -rf "$OO_PS4_TOOLCHAIN"
-          cp -r "$built" "$OO_PS4_TOOLCHAIN"
-
-      - name: Verify toolchain layout
-        run: |
-          if [ ! -d "$OO_PS4_TOOLCHAIN/include" ]; then
-            echo "Toolchain include directory missing at $OO_PS4_TOOLCHAIN"
-            ls -la toolchain || true
+          api=https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/latest
+          url=$(curl -sL --fail "$api" | python3 -c "import json,sys; r=json.load(sys.stdin); a=[x['browser_download_url'] for x in r.get('assets',[]) if x['name'].endswith('.tar.gz')]; print(a[0] if a else '')")
+          if [ -z "$url" ]; then
+            echo "No .tar.gz asset found in the latest OpenOrbis release."
             exit 1
+          fi
+          echo "Downloading $url"
+          curl -sL --fail "$url" -o toolchain.tar.gz
+          tar -xzf toolchain.tar.gz -C toolchain
+          rm -f toolchain.tar.gz
+
+      - name: Locate toolchain and export OO_PS4_TOOLCHAIN
+        run: |
+          inc=$(find toolchain -maxdepth 4 -type d -name include | head -n 1)
+          if [ -z "$inc" ]; then
+            echo "No include directory found in the toolchain. Contents of toolchain/:"
+            find toolchain -maxdepth 3 | head -n 50
+            exit 1
+          fi
+          root=$(cd "$(dirname "$inc")" && pwd)
+          echo "OO_PS4_TOOLCHAIN=$root" >> "$GITHUB_ENV"
+          echo "Toolchain root: $root"
+          if [ -d "$root/bin/linux" ]; then
+            chmod -R +x "$root/bin/linux"
           fi
 
       - name: Build SPRX
