@@ -166,18 +166,30 @@ static bool fire(int idx, bool held) {
     return h >= REPEAT_DELAY && ((h - REPEAT_DELAY) % REPEAT_RATE) == 0;
 }
 
-void ui_update(const ovl_pad_state_t *pad) {
-    if (g_toast > 0) {
-        g_toast--;
-    }
-    if (input_take_toggle()) {
-        g_visible = !g_visible;
-        g_prev = pad ? pad->buttons : 0;
-        for (int i = 0; i < 4; i++) g_hold[i] = 1;
-    }
-    if (!g_visible || pad == NULL) {
-        return;
-    }
+ void ui_update(const ovl_pad_state_t *pad) {
+     if (g_toast > 0) {
+         g_toast--;
+     }
+
+     if (input_take_toggle()) {
+         g_visible = !g_visible;
+         g_prev = pad ? pad->buttons : 0;
+         for (int i = 0; i < 4; i++) g_hold[i] = 1;
+     }
+
++    /* D-pad Up opens the menu when it is hidden. */
++    if (!g_visible && pad != NULL &&
++        (pad->buttons & OVL_BTN_UP) &&
++        !(g_prev & OVL_BTN_UP)) {
++        g_visible = true;
++        g_prev = pad->buttons;
++        for (int i = 0; i < 4; i++) g_hold[i] = 1;
++    }
++
+     if (!g_visible || pad == NULL) {
++        if (pad != NULL) g_prev = pad->buttons;
+         return;
+     }
     uint32_t b = pad->buttons;
     uint32_t pressed = b & ~g_prev;
     g_prev = b;
