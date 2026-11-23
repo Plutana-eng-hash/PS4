@@ -1,27 +1,30 @@
-PS4 Overlay Framework - Installation Notes
-==========================================
+PS4 Overlay - Installation
+==========================
 
-Files in this package
-  ps4_overlay_plugin.sprx   compiled GoldHEN plugin module
-  ovl_config.ini            general settings (window, colors, speeds, HUD)
-  offsets.ini               per-title offset table (unset by default)
-  README.md                 build and project notes
+Files
+  ps4_overlay_plugin.sprx   the plugin
+  ovl_config.ini            settings (the in-game menu can save to it)
+  plugins.ini.example       auto-load entry for GoldHEN
+  README.md                 notes
 
 Install
-  1. Copy ps4_overlay_plugin.sprx to the GoldHEN plugins folder on the console.
-  2. Create the folder /data/GoldHEN/plugins/ps4_overlay_plugin/ and copy
-     ovl_config.ini and offsets.ini into it.
-  3. Enable the plugin in the GoldHEN plugin list for the title you test.
-  4. Launch the title. Press Circle + Triangle together to show or hide the menu.
+  1. Copy ps4_overlay_plugin.sprx to       /data/GoldHEN/plugins/
+  2. Create the folder                     /data/GoldHEN/plugins/ps4_overlay_plugin/
+     and copy ovl_config.ini into it.
+  3. Auto-launch: add the lines from plugins.ini.example to
+     /data/GoldHEN/plugins.ini  ([default] = every game, [CUSAxxxxx] = one game).
+  4. Start a game. The FPS counter shows right away; press Circle + Triangle to open the menu.
 
 Controls
-  Circle + Triangle   show / hide menu
-  Left stick          move window
+  Circle + Triangle   show / hide menu (changeable in MENU > Open combo)
   L1 / R1             previous / next tab
-  Right stick Y       select row
-  Right stick X       adjust value (bools toggle)
+  D-pad up/down       select row
+  D-pad left/right    change value
+  Cross               toggle / cycle / run
+  Circle              close menu
+  While the menu is open the game does not receive pad input (MENU > Block input).
 
-Status
-  The overlay draws nothing until offsets.ini has a valid module_base and
-  render_present, and a render hook backend is supplied in code. Without
-  these, the plugin loads and does nothing visible. This is intentional.
+If nothing appears
+  Open /data/GoldHEN/plugins/ps4_overlay_plugin/ovl.log - it records every step
+  (module loads, hooks). Send it along with a description of what you see.
+  If the picture is scrambled where the menu should be, set render.layout to 1 or 2.

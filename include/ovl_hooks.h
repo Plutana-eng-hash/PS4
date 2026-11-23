@@ -4,13 +4,8 @@
 #include <stdint.h>
 #include "ovl_types.h"
 
-typedef ovl_status_t (*ovl_hook_backend_fn)(uintptr_t target, void *detour);
-
-void hooks_set_backend(ovl_hook_backend_fn fn);
-
+/* Resolves the video-out and pad APIs and installs the hooks. */
 ovl_status_t hooks_install(void);
 void hooks_remove(void);
-
-void hooks_on_present(void);
 
 #endif

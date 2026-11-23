@@ -3,34 +3,30 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include "ovl_types.h"
 
-#define DRAW_MAX_CMDS 1024
-#define DRAW_TEXT_MAX 64
+#define DRAW_MAX_CMDS 640
+#define DRAW_TEXT_MAX 40
+#define DRAW_GLYPH_W 8
 
-typedef enum {
-    OVL_CMD_RECT_FILL,
-    OVL_CMD_LINE,
-    OVL_CMD_TEXT
-} ovl_cmd_kind_t;
+/* Pixel formats of the scan-out buffers we can write to. */
+#define OVL_FMT_A8R8G8B8_SRGB   0x80000000u
+#define OVL_FMT_A8B8G8R8_SRGB   0x80002200u
+#define OVL_FMT_A2R10G10B10     0x88060000u
+#define OVL_FMT_A2R10G10B10_SRGB 0x88000000u
 
-typedef struct {
-    ovl_cmd_kind_t kind;
-    int32_t x;
-    int32_t y;
-    int32_t w;
-    int32_t h;
-    ovl_color_t color;
-    char text[DRAW_TEXT_MAX];
-} ovl_cmd_t;
+/* Point the renderer at a frame buffer for this frame. tiled=1 selects the
+ * 8x8 micro-tiled layout, 0 selects linear. */
+void draw_set_surface(void *base, int32_t w, int32_t h, int32_t pitch_px,
+                      uint32_t fmt, int32_t tiled);
+bool draw_surface_ok(void);
 
-typedef void (*ovl_draw_backend_fn)(const ovl_cmd_t *cmds, size_t count);
-
-void draw_set_backend(ovl_draw_backend_fn fn);
 void draw_begin(void);
-void draw_rect_fill(int32_t x, int32_t y, int32_t w, int32_t h, ovl_color_t color);
-void draw_line(int32_t x, int32_t y, int32_t dx, int32_t dy, ovl_color_t color);
-void draw_text(int32_t x, int32_t y, const char *text, ovl_color_t color);
+void draw_rect(int32_t x, int32_t y, int32_t w, int32_t h, ovl_color_t color);
+void draw_pill(int32_t x, int32_t y, int32_t w, int32_t h, ovl_color_t color);
+void draw_text(int32_t x, int32_t y, const char *text, ovl_color_t color, int32_t scale);
+int32_t draw_text_width(const char *text, int32_t scale);
 void draw_flush(void);
 
 #endif

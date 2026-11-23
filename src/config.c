@@ -1,12 +1,12 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdint.h>
 #include "ovl_config.h"
+#include "ovl_util.h"
 
-#define CFG_MAX_ENTRIES 128
-#define CFG_KEY_LEN 48
-#define CFG_VAL_LEN 64
+#define CFG_MAX_ENTRIES 64
+#define CFG_KEY_LEN 32
+#define CFG_VAL_LEN 24
+#define CFG_FILE_MAX 4096
+
+#define CFG_PATH OVL_DATA_DIR "ovl_config.ini"
 
 typedef struct {
     char key[CFG_KEY_LEN];
@@ -15,141 +15,153 @@ typedef struct {
 
 static cfg_entry_t g_entries[CFG_MAX_ENTRIES];
 static size_t g_count = 0;
+static char g_file[CFG_FILE_MAX];
 
 ovl_settings_t g_ovl_settings;
 
-static void cfg_trim(char *s) {
-    if (s == NULL) {
-        return;
-    }
-    size_t len = strlen(s);
-    while (len > 0 && (s[len - 1] == '\n' || s[len - 1] == '\r' ||
-                       s[len - 1] == ' ' || s[len - 1] == '\t')) {
-        s[--len] = '\0';
-    }
-    size_t start = 0;
-    while (s[start] == ' ' || s[start] == '\t') {
-        start++;
-    }
-    if (start > 0) {
-        memmove(s, s + start, strlen(s + start) + 1);
-    }
+typedef struct {
+    const char *key;
+    int32_t *p;
+    int32_t def;
+    int32_t min;
+    int32_t max;
+} setting_def_t;
+
+static const setting_def_t g_defs[] = {
+    {"hud.fps",        &g_ovl_settings.show_fps,       1, 0, 1},
+    {"hud.frametime",  &g_ovl_settings.show_frametime, 0, 0, 1},
+    {"hud.resolution", &g_ovl_settings.show_res,       0, 0, 1},
+    {"hud.uptime",     &g_ovl_settings.show_uptime,    0, 0, 1},
+    {"hud.corner",     &g_ovl_settings.hud_corner,     0, 0, 3},
+    {"hud.scale",      &g_ovl_settings.hud_scale,      2, 1, 3},
+    {"sight.enabled",  &g_ovl_settings.xh_on,          0, 0, 1},
+    {"sight.style",    &g_ovl_settings.xh_style,       0, 0, 3},
+    {"sight.size",     &g_ovl_settings.xh_size,       12, 1, 64},
+    {"sight.thickness",&g_ovl_settings.xh_thick,       2, 1, 8},
+    {"sight.gap",      &g_ovl_settings.xh_gap,         4, 0, 32},
+    {"sight.color",    &g_ovl_settings.xh_color,       3, 0, 7},
+    {"sight.outline",  &g_ovl_settings.xh_outline,     1, 0, 1},
+    {"sight.dot",      &g_ovl_settings.xh_dot,         0, 0, 1},
+    {"menu.theme",     &g_ovl_settings.theme,          0, 0, 1},
+    {"menu.scale",     &g_ovl_settings.ui_scale,       2, 1, 3},
+    {"menu.x",         &g_ovl_settings.menu_x,         4, 0, 100},
+    {"menu.y",         &g_ovl_settings.menu_y,        35, 0, 100},
+    {"menu.combo",     &g_ovl_settings.combo,          0, 0, 3},
+    {"menu.hints",     &g_ovl_settings.show_hints,     1, 0, 1},
+    {"menu.block_input",&g_ovl_settings.block_input,   1, 0, 1},
+    {"render.layout",  &g_ovl_settings.layout,         0, 0, 2},
+};
+
+#define DEF_COUNT (sizeof g_defs / sizeof g_defs[0])
+
+static bool is_space(char c) {
+    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
 }
 
-static const char *cfg_find(const char *key) {
-    for (size_t i = 0; i < g_count; i++) {
-        if (strcmp(g_entries[i].key, key) == 0) {
-            return g_entries[i].val;
-        }
+static char *trim(char *s) {
+    while (is_space(*s)) {
+        s++;
     }
-    return NULL;
+    size_t n = ovl_strlen(s);
+    while (n > 0 && is_space(s[n - 1])) {
+        s[--n] = '\0';
+    }
+    return s;
 }
 
-static void cfg_store(const char *key, const char *val) {
+static void store(const char *key, const char *val) {
     for (size_t i = 0; i < g_count; i++) {
-        if (strcmp(g_entries[i].key, key) == 0) {
-            strncpy(g_entries[i].val, val, CFG_VAL_LEN - 1);
-            g_entries[i].val[CFG_VAL_LEN - 1] = '\0';
+        if (ovl_strcmp(g_entries[i].key, key) == 0) {
+            ovl_copy(g_entries[i].val, CFG_VAL_LEN, val);
             return;
         }
     }
-    if (g_count >= CFG_MAX_ENTRIES) {
-        return;
+    if (g_count < CFG_MAX_ENTRIES) {
+        ovl_copy(g_entries[g_count].key, CFG_KEY_LEN, key);
+        ovl_copy(g_entries[g_count].val, CFG_VAL_LEN, val);
+        g_count++;
     }
-    strncpy(g_entries[g_count].key, key, CFG_KEY_LEN - 1);
-    g_entries[g_count].key[CFG_KEY_LEN - 1] = '\0';
-    strncpy(g_entries[g_count].val, val, CFG_VAL_LEN - 1);
-    g_entries[g_count].val[CFG_VAL_LEN - 1] = '\0';
-    g_count++;
 }
 
 ovl_status_t ovl_config_load(const char *path) {
-    if (path == NULL) {
-        return OVL_ERR_NULL;
-    }
-    FILE *f = fopen(path, "r");
-    if (f == NULL) {
+    int n = ovl_file_read(path, g_file, sizeof g_file);
+    if (n < 0) {
         return OVL_ERR_IO;
     }
-    char line[160];
-    while (fgets(line, sizeof line, f) != NULL) {
-        cfg_trim(line);
+    char *line = g_file;
+    while (*line != '\0') {
+        char *end = line;
+        while (*end != '\0' && *end != '\n') {
+            end++;
+        }
+        char saved = *end;
+        *end = '\0';
 
-        if (line[0] == '\0' || line[0] == '#' || line[0] == ';' || line[0] == '[') {
-            continue;
+        char *l = trim(line);
+        if (l[0] != '\0' && l[0] != '#' && l[0] != ';' && l[0] != '[') {
+            char *eq = l;
+            while (*eq != '\0' && *eq != '=') {
+                eq++;
+            }
+            if (*eq == '=') {
+                *eq = '\0';
+                char *k = trim(l);
+                char *v = trim(eq + 1);
+                if (k[0] != '\0') {
+                    store(k, v);
+                }
+            }
         }
-        char *eq = strchr(line, '=');
-        if (eq == NULL) {
-            continue;
+        if (saved == '\0') {
+            break;
         }
-        *eq = '\0';
-        char *key = line;
-        char *val = eq + 1;
-        cfg_trim(key);
-        cfg_trim(val);
-        if (key[0] != '\0') {
-            cfg_store(key, val);
-        }
+        line = end + 1;
     }
-    fclose(f);
     return OVL_OK;
 }
 
 int32_t ovl_config_get_int(const char *key, int32_t def) {
-    if (key == NULL) {
-        return def;
-    }
-    const char *v = cfg_find(key);
-    if (v == NULL || v[0] == '\0') {
-        return def;
-    }
-    char *end = NULL;
-    long r = strtol(v, &end, 0);
-    if (end == v) {
-        return def;
-    }
-    return (int32_t)r;
-}
-
-bool ovl_config_get_bool(const char *key, bool def) {
-    if (key == NULL) {
-        return def;
-    }
-    const char *v = cfg_find(key);
-    if (v == NULL) {
-        return def;
-    }
-    if (strcmp(v, "1") == 0 || strcmp(v, "true") == 0 || strcmp(v, "on") == 0 || strcmp(v, "yes") == 0) {
-        return true;
-    }
-    if (strcmp(v, "0") == 0 || strcmp(v, "false") == 0 || strcmp(v, "off") == 0 || strcmp(v, "no") == 0) {
-        return false;
+    for (size_t i = 0; i < g_count; i++) {
+        if (ovl_strcmp(g_entries[i].key, key) == 0) {
+            const char *v = g_entries[i].val;
+            if (v[0] == '\0') {
+                return def;
+            }
+            return ovl_atoi(v);
+        }
     }
     return def;
 }
 
-const char *ovl_config_get_string(const char *key, const char *def) {
-    if (key == NULL) {
-        return def;
+static int32_t clamp(int32_t v, int32_t lo, int32_t hi) {
+    return v < lo ? lo : (v > hi ? hi : v);
+}
+
+void ovl_settings_defaults(void) {
+    for (size_t i = 0; i < DEF_COUNT; i++) {
+        *g_defs[i].p = g_defs[i].def;
     }
-    const char *v = cfg_find(key);
-    return (v != NULL) ? v : def;
 }
 
 ovl_status_t ovl_settings_load(void) {
-    g_ovl_settings.win_x = ovl_config_get_int("ui.win_x", 40);
-    g_ovl_settings.win_y = ovl_config_get_int("ui.win_y", 60);
-    g_ovl_settings.show_fps = ovl_config_get_int("visual.show_fps", 1);
-    g_ovl_settings.show_crosshair = ovl_config_get_int("visual.show_crosshair", 1);
-    g_ovl_settings.crosshair_size = ovl_config_get_int("visual.crosshair_size", 10);
-    g_ovl_settings.crosshair_r = ovl_config_get_int("visual.crosshair_r", 0);
-    g_ovl_settings.crosshair_g = ovl_config_get_int("visual.crosshair_g", 255);
-    g_ovl_settings.crosshair_b = ovl_config_get_int("visual.crosshair_b", 0);
-    g_ovl_settings.menu_r = ovl_config_get_int("ui.menu_r", 24);
-    g_ovl_settings.menu_g = ovl_config_get_int("ui.menu_g", 24);
-    g_ovl_settings.menu_b = ovl_config_get_int("ui.menu_b", 32);
-    g_ovl_settings.menu_alpha = ovl_config_get_int("ui.menu_alpha", 220);
-    g_ovl_settings.stick_move_speed = ovl_config_get_int("ui.stick_move_speed", 8);
-    g_ovl_settings.stick_adjust_speed = ovl_config_get_int("ui.stick_adjust_speed", 2);
-    return OVL_OK;
+    g_count = 0;
+    ovl_settings_defaults();
+    ovl_status_t st = ovl_config_load(CFG_PATH);
+    for (size_t i = 0; i < DEF_COUNT; i++) {
+        int32_t v = ovl_config_get_int(g_defs[i].key, g_defs[i].def);
+        *g_defs[i].p = clamp(v, g_defs[i].min, g_defs[i].max);
+    }
+    return st;
+}
+
+ovl_status_t ovl_settings_save(void) {
+    g_file[0] = '\0';
+    ovl_cat(g_file, sizeof g_file, "# PS4 Overlay settings (written by the in-game menu)\n");
+    for (size_t i = 0; i < DEF_COUNT; i++) {
+        ovl_cat(g_file, sizeof g_file, g_defs[i].key);
+        ovl_cat(g_file, sizeof g_file, " = ");
+        ovl_cat_int(g_file, sizeof g_file, *g_defs[i].p);
+        ovl_cat(g_file, sizeof g_file, "\n");
+    }
+    return ovl_file_write(CFG_PATH, g_file, ovl_strlen(g_file), false) == 0 ? OVL_OK : OVL_ERR_IO;
 }

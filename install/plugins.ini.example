@@ -1,0 +1,8 @@
+; GoldHEN: /data/GoldHEN/plugins.ini
+; [default] loads the overlay in every game as soon as it launches.
+[default]
+/data/GoldHEN/plugins/ps4_overlay_plugin.sprx
+
+; Or limit it to specific titles instead (replace with your title ID):
+; [CUSA00000]
+; /data/GoldHEN/plugins/ps4_overlay_plugin.sprx

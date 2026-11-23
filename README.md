@@ -1,57 +1,27 @@
-# PS4 Overlay Framework
+# PS4 Overlay
 
-A GoldHEN-compatible plugin framework: a movable tabbed overlay, Circle + Triangle toggle,
-an FPS counter, a configurable crosshair, a config-file system, and a pluggable
-game-info interface. It contains no game-specific or gameplay-advantage features and is
-intended for homebrew development and testing on titles you own.
+A GoldHEN plugin that draws a black-and-white in-game overlay: FPS/frame-time HUD,
+a configurable crosshair, and a tabbed menu with toggles, sliders and choices.
+No game-specific or gameplay-advantage features.
 
-## Layout
+## How it works
+- Hooks `sceVideoOutRegisterBuffers` (to learn the frame buffers), `sceVideoOutSubmitFlip`
+  (to draw on each frame before it is shown) and `scePadReadState` (menu input, and hiding
+  input from the game while the menu is open).
+- A small inline-hook engine (`platform.c`) and a software renderer with a built-in
+  8x8 font (`draw.c`). The module does not use the C library at runtime.
+- Writes `/data/GoldHEN/plugins/ps4_overlay_plugin/ovl.log` for diagnostics.
 
-    src/            C sources (one module per subsystem)
-    include/        headers
-    config/         ovl_config.ini (settings), offsets.ini (per-title offsets)
-    install/        INSTALL.txt shipped with the package
-    .github/        build workflow
-    Makefile        OpenOrbis build and packaging
+## Menu
+HUD (FPS, frame time, resolution, uptime, corner, scale) / SIGHT (crosshair style, size,
+thickness, gap, color, outline, dot) / MENU (theme, scale, position, open combo, input
+blocking, hints) / INFO (live stats and hook status) / SYS (save, reload, reset, buffer layout).
 
-Modules: input, draw, ui, features, config, offsets, hooks, main (entry points).
-Function names are prefixed by subsystem: `input_`, `draw_`, `ui_`, `features_`,
-`hooks_`, `ovl_`, plus `ovl_config_` and `ovl_settings_` in config.
+## Build
+`make` and `make package` with `OO_PS4_TOOLCHAIN` set, or push to GitHub and let the
+workflow build `dist/ps4_overlay_plugin.zip`.
 
-## Building locally
-
-1. Build or install the OpenOrbis PS4 toolchain and export its path:
-
-       export OO_PS4_TOOLCHAIN=/path/to/OpenOrbis/PS4Toolchain
-
-2. Build the module and the package:
-
-       make
-       make package
-
-Output: `dist/ps4_overlay_plugin.zip` containing the `.sprx`, the config files, and install notes.
-
-## Building in GitHub Actions
-
-`.github/workflows/build.yml` runs on push and on manual dispatch. It installs host tools,
-restores or builds the OpenOrbis toolchain (cached), builds the `.sprx`, packages the zip,
-and uploads it as the workflow artifact `ps4_overlay_plugin`.
-
-## Verification status
-
-The source was written without access to the PS4 SDK or hardware, so the following must be
-checked before relying on the build:
-
-- **Toolchain paths, compiler flags, and library names** in the Makefile match your OpenOrbis version.
-- **SPRX generation step** (`PRX_GEN` in the Makefile) uses the tool name shipped by your toolchain.
-- **Toolchain build command** in the workflow matches the version you pin.
-- **Pad reader** is a stub (`input_default_reader`). It must be bound to the pad API on hardware.
-- **Render hook backend** is not implemented. It is target-specific code patching and is left as
-  a supplied function (`hooks_set_backend`).
-- **Module base** must be resolved at runtime for the target; it is read from `offsets.ini` for now.
-- **Draw backend** is not bound, so commands are recorded but not rendered until a renderer is set
-  with `draw_set_backend`.
-- **Entity data provider** in `features.c` is a placeholder for per-title reading.
-
-Nothing in this framework has been run on a console. Treat the first build as a compile check and
-test on your own title before expecting any on-screen output.
+## Status
+Compiles; the renderer and menu logic are tested on a PC. Hooking, pad parsing and
+scan-out buffer layout have NOT been verified on a console. If the menu is scrambled,
+change `render.layout`; if nothing shows, read `ovl.log`.

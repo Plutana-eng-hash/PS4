@@ -1,25 +1,26 @@
 #include <stddef.h>
 #include "ovl_config.h"
-#include "ovl_input.h"
-#include "ovl_ui.h"
 #include "ovl_features.h"
 #include "ovl_hooks.h"
-
-#define OVL_DATA_DIR "/data/GoldHEN/plugins/ps4_overlay_plugin/"
+#include "ovl_ui.h"
+#include "ovl_util.h"
 
 int module_start(size_t argc, const void *argp) {
     (void)argc;
     (void)argp;
 
-    ovl_config_load(OVL_DATA_DIR "ovl_config.ini");
-    ovl_config_load(OVL_DATA_DIR "offsets.ini");
-    ovl_settings_load();
+    ovl_log_reset();
+    ovl_log("ps4_overlay_plugin starting");
 
+    if (ovl_settings_load() != OVL_OK) {
+        ovl_log("ovl_config.ini not found, using defaults");
+    }
     features_init();
     ui_init();
-    input_set_reader(NULL);
 
-    (void)hooks_install();
+    if (hooks_install() != OVL_OK) {
+        ovl_log("render hook NOT installed - see messages above");
+    }
     return 0;
 }
 

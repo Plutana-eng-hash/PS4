@@ -57,7 +57,7 @@ package: all
 	mkdir -p $(DIST_DIR)/pkg
 	cp $(SPRX) $(DIST_DIR)/pkg/
 	cp config/*.ini $(DIST_DIR)/pkg/
-	cp install/INSTALL.txt README.md $(DIST_DIR)/pkg/
+	cp install/INSTALL.txt install/plugins.ini.example README.md $(DIST_DIR)/pkg/
 	cd $(DIST_DIR)/pkg && zip -r ../$(TARGET).zip .
 	@echo "Packaged $(DIST_DIR)/$(TARGET).zip"
 
