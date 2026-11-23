@@ -40,10 +40,14 @@ $(ELF): $(OBJS)
 	$(LD) -m elf_x86_64 -pie --script $(LINK_SCRIPT) --eh-frame-hdr -e module_start -o $@ $(OBJS) $(LIBS)
 	@echo "--- linked output ---"; head -c 16 $@ | od -An -tx1; file $@ || true; readelf -lW $@ || true
 
+OELF := $(BUILD_DIR)/$(TARGET).oelf
+PRX  := $(BUILD_DIR)/$(TARGET).prx
+
 $(SPRX): $(ELF)
 	@test -x "$(PRX_GEN)" || { echo "SPRX converter not found: $(PRX_GEN)"; exit 1; }
-	$(PRX_GEN) -in $< -out $@ -lib $(BUILD_DIR)/$(TARGET).stub.prx -libname $(TARGET) -paid 0x3800000000000011 -ptype fake || python3 "$(OO_PS4_TOOLCHAIN)/scripts/make_fself.py" $< $@ || { echo "Both create-fself and make_fself.py failed."; "$(PRX_GEN)" --help; echo "--- program headers of $< ---"; readelf -lW $<; echo "--- dynamic section of $< ---"; readelf -dW $<; exit 1; }
-	@test -s $@ || { echo "converter reported success but $@ is empty"; exit 1; }
+	$(PRX_GEN) -in $< -out $(OELF) -lib $(PRX) -libname $(TARGET) -paid 0x3800000000000011 -ptype fake -library-path $(OO_PS4_TOOLCHAIN)/lib
+	@test -s $(PRX) || { echo "create-fself produced no $(PRX)"; exit 1; }
+	cp $(PRX) $@
 
 package: all
 	rm -rf $(DIST_DIR)/pkg
