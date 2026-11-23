@@ -84,6 +84,13 @@ jobs:
             fi
           done
 
+      - name: Dump toolchain layout (diagnostic)
+        if: always()
+        run: |
+          echo "=== lib ==="; ls -la "$OO_PS4_TOOLCHAIN/lib" | head -60
+          echo "=== link.x ==="; cat "$OO_PS4_TOOLCHAIN/link.x"
+          echo "=== bin/linux ==="; ls -la "$OO_PS4_TOOLCHAIN/bin/linux"
+
       - name: Build SPRX
         run: make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
 
