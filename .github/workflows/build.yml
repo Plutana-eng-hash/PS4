@@ -19,6 +19,7 @@ jobs:
 
       - name: Compile sources against host headers
         run: |
+          set -eu
           for f in src/*.c; do
             gcc -std=c11 -fsyntax-only -Iinclude -Wall -Wextra "$f"
           done
@@ -42,60 +43,44 @@ jobs:
           path: toolchain
           key: openorbis-release-v4
 
-      - name: Download latest OpenOrbis toolchain release
+      - name: Download OpenOrbis toolchain
         if: steps.cache-toolchain.outputs.cache-hit != 'true'
         run: |
+          set -eu
           mkdir -p toolchain
           api=https://api.github.com/repos/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/latest
-          url=$(curl -sL --fail "$api" | python3 -c "import json,sys; r=json.load(sys.stdin); a=[x['browser_download_url'] for x in r.get('assets',[]) if x['name'].endswith('.tar.gz')]; print(a[0] if a else '')")
+          url=$(curl --retry 3 --retry-all-errors -fsSL "$api" | python3 -c "import json,sys; r=json.load(sys.stdin); a=[x['browser_download_url'] for x in r.get('assets',[]) if x['name'].endswith('.tar.gz')]; print(a[0] if a else '')")
           if [ -z "$url" ]; then
             echo "No .tar.gz asset found in the latest OpenOrbis release."
             exit 1
           fi
-          echo "Downloading $url"
-          curl -sL --fail "$url" -o toolchain.tar.gz
+          curl --retry 3 --retry-all-errors -fsSL "$url" -o toolchain.tar.gz
           tar -xzf toolchain.tar.gz -C toolchain
           rm -f toolchain.tar.gz
 
-      - name: Locate toolchain and export OO_PS4_TOOLCHAIN
+      - name: Locate and validate toolchain
         run: |
-          inc=$(find toolchain -maxdepth 4 -type d -name include | head -n 1)
+          set -eu
+          inc=$(find toolchain -type d -name include -print -quit)
           if [ -z "$inc" ]; then
-            echo "No include directory found in the toolchain. Contents of toolchain/:"
-            find toolchain -maxdepth 3 | head -n 50
+            echo "No toolchain include directory found."
+            find toolchain -maxdepth 5 -print | head -n 80
             exit 1
           fi
           root=$(cd "$(dirname "$inc")" && pwd)
+          test -f "$root/link.x" || { echo "Missing link.x under $root"; exit 1; }
+          test -f "$root/bin/linux/create-fself" || { echo "Missing create-fself under $root"; exit 1; }
           echo "OO_PS4_TOOLCHAIN=$root" >> "$GITHUB_ENV"
-          echo "Toolchain root: $root"
-          if [ -d "$root/bin/linux" ]; then
-            chmod -R +x "$root/bin/linux"
-          fi
-
-      - name: Show toolchain library sample build recipe
-        if: always()
-        run: |
-          echo "Samples directory:"
-          ls "$OO_PS4_TOOLCHAIN/samples" 2>/dev/null || ls toolchain/OpenOrbis/PS4Toolchain/samples 2>/dev/null || echo "no samples dir found"
-          for mk in $(find "$OO_PS4_TOOLCHAIN/samples" -name Makefile 2>/dev/null); do
-            if grep -qi 'prx\|sprx\|lib' "$mk"; then
-              echo "=== $mk ==="
-              cat "$mk"
-            fi
-          done
-
-      - name: Dump toolchain layout (diagnostic)
-        if: always()
-        run: |
-          echo "=== lib ==="; ls -la "$OO_PS4_TOOLCHAIN/lib" | head -60
-          echo "=== link.x ==="; cat "$OO_PS4_TOOLCHAIN/link.x"
-          echo "=== bin/linux ==="; ls -la "$OO_PS4_TOOLCHAIN/bin/linux"
+          chmod -R +x "$root/bin/linux"
 
       - name: Build SPRX
         run: make OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
 
       - name: Package zip
         run: make package OO_PS4_TOOLCHAIN="$OO_PS4_TOOLCHAIN"
+
+      - name: Verify package
+        run: test -s dist/ps4_overlay_plugin.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
