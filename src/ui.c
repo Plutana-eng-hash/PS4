@@ -1,7 +1,9 @@
+
 #include "ovl_ui.h"
 #include "ovl_config.h"
 #include "ovl_draw.h"
 #include "ovl_features.h"
+#include "ovl_input.h"
 #include "ovl_util.h"
 
 /* Layout is expressed in "font pixels"; everything is multiplied by the UI
@@ -48,32 +50,32 @@ static const char *const CH_LAYOUT[] = {"Auto", "Linear", "Tiled"};
 static const ui_item_t ITEMS_HUD[] = {
     {"FPS counter",  IT_TOGGLE, S(show_fps),       0, 1, NULL, 0},
     {"Frame time",   IT_TOGGLE, S(show_frametime), 0, 1, NULL, 0},
-    {"Resolution",   IT_TOGGLE, S(show_res),       0, 1, NULL, 0},
-    {"Uptime",       IT_TOGGLE, S(show_uptime),    0, 1, NULL, 0},
-    {"Corner",       IT_CHOICE, S(hud_corner),     0, 3, CH_CORNER, 0},
-    {"HUD scale",    IT_SLIDER, S(hud_scale),      1, 3, NULL, 0},
+    {"Resolution",   IT_TOGGLE, S(show_res),        0, 1, NULL, 0},
+    {"Uptime",       IT_TOGGLE, S(show_uptime),     0, 1, NULL, 0},
+    {"Corner",       IT_CHOICE, S(hud_corner),      0, 3, CH_CORNER, 0},
+    {"HUD scale",    IT_SLIDER, S(hud_scale),       1, 3, NULL, 0},
 };
 
 static const ui_item_t ITEMS_SIGHT[] = {
-    {"Crosshair",    IT_TOGGLE, S(xh_on),      0, 1,  NULL, 0},
-    {"Style",        IT_CHOICE, S(xh_style),   0, 3,  CH_STYLE, 0},
+    {"Crosshair",    IT_TOGGLE, S(xh_on),      0, 1, NULL, 0},
+    {"Style",        IT_CHOICE, S(xh_style),   0, 3, CH_STYLE, 0},
     {"Size",         IT_SLIDER, S(xh_size),    1, 64, NULL, 0},
-    {"Thickness",    IT_SLIDER, S(xh_thick),   1, 8,  NULL, 0},
+    {"Thickness",    IT_SLIDER, S(xh_thick),   1, 8, NULL, 0},
     {"Gap",          IT_SLIDER, S(xh_gap),     0, 32, NULL, 0},
-    {"Color",        IT_CHOICE, S(xh_color),   0, 7,  CH_COLOR, 0},
-    {"Outline",      IT_TOGGLE, S(xh_outline), 0, 1,  NULL, 0},
-    {"Center dot",   IT_TOGGLE, S(xh_dot),     0, 1,  NULL, 0},
+    {"Color",        IT_CHOICE, S(xh_color),   0, 7, CH_COLOR, 0},
+    {"Outline",      IT_TOGGLE, S(xh_outline),  0, 1, NULL, 0},
+    {"Center dot",   IT_TOGGLE, S(xh_dot),      0, 1, NULL, 0},
 };
 
 static const ui_item_t ITEMS_MENU[] = {
-    {"Theme",        IT_CHOICE, S(theme),       0, 1,   CH_THEME, 0},
-    {"Menu scale",   IT_SLIDER, S(ui_scale),    1, 3,   NULL, 0},
-    {"Position X",   IT_SLIDER, S(menu_x),      0, 100, NULL, 0},
-    {"Position Y",   IT_SLIDER, S(menu_y),      0, 100, NULL, 0},
-    {"Open combo",   IT_CHOICE, S(combo),       0, 3,   CH_COMBO, 0},
-    {"Block input",  IT_TOGGLE, S(block_input), 0, 1,   NULL, 0},
-    {"Hints",        IT_TOGGLE, S(show_hints),  0, 1,   NULL, 0},
-    {"Notifications",IT_TOGGLE, S(notify),      0, 1,   NULL, 0},
+    {"Theme",         IT_CHOICE, S(theme),       0, 1,   CH_THEME, 0},
+    {"Menu scale",    IT_SLIDER, S(ui_scale),    1, 3,   NULL, 0},
+    {"Position X",    IT_SLIDER, S(menu_x),      0, 100, NULL, 0},
+    {"Position Y",    IT_SLIDER, S(menu_y),      0, 100, NULL, 0},
+    {"Open combo",    IT_CHOICE, S(combo),       0, 3,   CH_COMBO, 0},
+    {"Block input",   IT_TOGGLE, S(block_input), 0, 1,   NULL, 0},
+    {"Hints",         IT_TOGGLE, S(show_hints),  0, 1,   NULL, 0},
+    {"Notifications",  IT_TOGGLE, S(notify),      0, 1,   NULL, 0},
 };
 
 static const ui_item_t ITEMS_SYS[] = {
@@ -108,7 +110,9 @@ void ui_init(void) {
     g_scroll = 0;
     g_visible = false;
     g_prev = 0;
-    for (int i = 0; i < 4; i++) g_hold[i] = 0;
+    for (int i = 0; i < 4; i++) {
+        g_hold[i] = 0;
+    }
     g_toast = 0;
 }
 
@@ -144,13 +148,15 @@ static void change(const ui_item_t *it, int32_t dir) {
     if (it->value == NULL) {
         return;
     }
+
     if (it->kind == IT_TOGGLE) {
         *it->value = *it->value ? 0 : 1;
     } else if (it->kind == IT_SLIDER) {
         *it->value = clampi(*it->value + dir, it->min, it->max);
     } else if (it->kind == IT_CHOICE) {
         int32_t span = it->max - it->min + 1;
-        *it->value = it->min + ((*it->value - it->min + dir + span) % span);
+        *it->value = it->min +
+            ((*it->value - it->min + dir + span) % span);
     }
 }
 
@@ -159,37 +165,63 @@ static bool fire(int idx, bool held) {
         g_hold[idx] = 0;
         return false;
     }
+
     int32_t h = g_hold[idx]++;
     if (h == 0) {
         return true;
     }
-    return h >= REPEAT_DELAY && ((h - REPEAT_DELAY) % REPEAT_RATE) == 0;
+
+    return h >= REPEAT_DELAY &&
+           ((h - REPEAT_DELAY) % REPEAT_RATE) == 0;
 }
 
- void ui_update(const ovl_pad_state_t *pad) {
-     if (g_toast > 0) {
-         g_toast--;
-     }
+void ui_update(const ovl_pad_state_t *pad) {
+    if (g_toast > 0) {
+        g_toast--;
+    }
 
-     if (input_take_toggle()) {
-         g_visible = !g_visible;
-         g_prev = pad ? pad->buttons : 0;
-         for (int i = 0; i < 4; i++) g_hold[i] = 1;
-     }
+    if (pad == NULL) {
+        return;
+    }
 
-+    /* D-pad Up opens the menu when it is hidden. */
-+    if (!g_visible && pad != NULL &&
-+        (pad->buttons & OVL_BTN_UP) &&
-+        !(g_prev & OVL_BTN_UP)) {
-+        g_visible = true;
-+        g_prev = pad->buttons;
-+        for (int i = 0; i < 4; i++) g_hold[i] = 1;
-+    }
-+
-     if (!g_visible || pad == NULL) {
-+        if (pad != NULL) g_prev = pad->buttons;
-         return;
-     }
+    /*
+     * D-pad Up opens the menu when hidden.
+     *
+     * This is edge-triggered, so holding Up does not repeatedly open
+     * the menu. g_prev is synchronized immediately to prevent the same
+     * press from moving the menu selection after opening.
+     */
+    if (!g_visible) {
+        uint32_t pressed = pad->buttons & ~g_prev;
+        g_prev = pad->buttons;
+
+        if (pressed & OVL_BTN_UP) {
+            g_visible = true;
+            g_sel = 0;
+            g_scroll = 0;
+
+            for (int i = 0; i < 4; i++) {
+                g_hold[i] = 0;
+            }
+        }
+    }
+
+    /*
+     * Preserve the existing configured combo for opening and closing.
+     */
+    if (input_take_toggle()) {
+        g_visible = !g_visible;
+        g_prev = pad->buttons;
+
+        for (int i = 0; i < 4; i++) {
+            g_hold[i] = 0;
+        }
+    }
+
+    if (!g_visible) {
+        return;
+    }
+
     uint32_t b = pad->buttons;
     uint32_t pressed = b & ~g_prev;
     g_prev = b;
@@ -201,11 +233,13 @@ static bool fire(int idx, bool held) {
         g_sel = g_scroll = 0;
         return;
     }
+
     if (pressed & OVL_BTN_R1) {
         g_tab = (g_tab + 1) % TAB_COUNT;
         g_sel = g_scroll = 0;
         return;
     }
+
     if (pressed & OVL_BTN_CIRCLE) {
         g_visible = false;
         return;
@@ -219,26 +253,33 @@ static bool fire(int idx, bool held) {
     if (tab->count == 0) {
         return;
     }
+
     if (up) {
         g_sel = (g_sel + tab->count - 1) % tab->count;
     }
+
     if (down) {
         g_sel = (g_sel + 1) % tab->count;
     }
+
     if (g_sel < g_scroll) {
         g_scroll = g_sel;
     }
+
     if (g_sel >= g_scroll + MAX_ROWS) {
         g_scroll = g_sel - MAX_ROWS + 1;
     }
 
     const ui_item_t *it = &tab->items[g_sel];
+
     if (left) {
         change(it, -1);
     }
+
     if (right) {
         change(it, +1);
     }
+
     if (pressed & OVL_BTN_CROSS) {
         if (it->kind == IT_ACTION) {
             run_action(it->action);
@@ -250,8 +291,11 @@ static bool fire(int idx, bool held) {
     }
 }
 
-static void put_toggle(int32_t x, int32_t y, int32_t s, bool on, ovl_color_t fg, ovl_color_t bg) {
-    int32_t w = 24 * s, h = 10 * s;
+static void put_toggle(int32_t x, int32_t y, int32_t s, bool on,
+                       ovl_color_t fg, ovl_color_t bg) {
+    int32_t w = 24 * s;
+    int32_t h = 10 * s;
+
     if (on) {
         draw_pill(x, y, w, h, fg);
         draw_pill(x + w - 8 * s, y + 2 * s, 6 * s, 6 * s, bg);
@@ -262,31 +306,40 @@ static void put_toggle(int32_t x, int32_t y, int32_t s, bool on, ovl_color_t fg,
     }
 }
 
-static void put_slider(int32_t right, int32_t y, int32_t s, const ui_item_t *it,
-                       ovl_color_t fg, ovl_color_t bg) {
+static void put_slider(int32_t right, int32_t y, int32_t s,
+                       const ui_item_t *it, ovl_color_t fg, ovl_color_t bg) {
     char val[8];
     val[0] = '\0';
     ovl_cat_int(val, sizeof val, *it->value);
+
     int32_t tw = draw_text_width(val, s);
     draw_text(right - tw, y + 3 * s, val, fg, s);
 
     int32_t bw = 44 * s;
     int32_t bx = right - tw - 6 * s - bw;
     int32_t by = y + 4 * s;
+
     draw_rect(bx, by, bw, 5 * s, fg);
     draw_rect(bx + s, by + s, bw - 2 * s, 3 * s, bg);
+
     int32_t span = it->max - it->min;
-    int32_t fill = span > 0 ? ((bw - 2 * s) * (*it->value - it->min)) / span : 0;
+    int32_t fill = span > 0 ?
+        ((bw - 2 * s) * (*it->value - it->min)) / span : 0;
+
     draw_rect(bx + s, by + s, fill, 3 * s, fg);
 }
 
 static void put_info(int32_t x, int32_t y, int32_t s, ovl_color_t fg) {
     char line[48];
+
     for (size_t i = 0; i < MAX_ROWS; i++) {
         if (!features_info_line(i, line, sizeof line)) {
             break;
         }
-        draw_text(x + PAD_X * s, y + (int32_t)i * ROW_H * s + 3 * s, line, fg, s);
+
+        draw_text(x + PAD_X * s,
+                  y + (int32_t)i * ROW_H * s + 3 * s,
+                  line, fg, s);
     }
 }
 
@@ -294,46 +347,80 @@ void ui_draw(void) {
     if (!g_visible) {
         return;
     }
+
     int32_t s = clampi(g_ovl_settings.ui_scale, 1, 3);
     int32_t sw = 1920, sh = 1080;
     features_screen_size(&sw, &sh);
-    int32_t pw = PANEL_W * s, ph = PANEL_H * s;
-    if (pw > sw - 4) pw = sw - 4;
-    if (ph > sh - 4) ph = sh - 4;
+
+    int32_t pw = PANEL_W * s;
+    int32_t ph = PANEL_H * s;
+
+    if (pw > sw - 4) {
+        pw = sw - 4;
+    }
+
+    if (ph > sh - 4) {
+        ph = sh - 4;
+    }
 
     int32_t x = ((sw - PANEL_W * s) * g_ovl_settings.menu_x) / 100;
     int32_t y = ((sh - PANEL_H * s) * g_ovl_settings.menu_y) / 100;
-    if (x < 2) x = 2;
-    if (y < 2) y = 2;
+
+    if (x < 2) {
+        x = 2;
+    }
+
+    if (y < 2) {
+        y = 2;
+    }
 
     bool light = g_ovl_settings.theme == 1;
-    ovl_color_t bg = light ? (ovl_color_t){255, 255, 255, 255} : (ovl_color_t){0, 0, 0, 255};
-    ovl_color_t fg = light ? (ovl_color_t){0, 0, 0, 255} : (ovl_color_t){255, 255, 255, 255};
-    ovl_color_t dim = light ? (ovl_color_t){110, 110, 110, 255} : (ovl_color_t){140, 140, 140, 255};
 
-    /* frame + background */
+    ovl_color_t bg = light ?
+        (ovl_color_t){255, 255, 255, 255} :
+        (ovl_color_t){0, 0, 0, 255};
+
+    ovl_color_t fg = light ?
+        (ovl_color_t){0, 0, 0, 255} :
+        (ovl_color_t){255, 255, 255, 255};
+
+    ovl_color_t dim = light ?
+        (ovl_color_t){110, 110, 110, 255} :
+        (ovl_color_t){140, 140, 140, 255};
+
+    /* Frame + background */
     draw_rect(x - s, y - s, PANEL_W * s + 2 * s, PANEL_H * s + 2 * s, fg);
     draw_rect(x, y, PANEL_W * s, PANEL_H * s, bg);
 
-    /* title */
+    /* Title */
     draw_text(x + PAD_X * s, y + 6 * s, "OVERLAY", fg, s);
-    draw_text(x + (PANEL_W - PAD_X) * s - draw_text_width("v2", s), y + 6 * s, "v2", dim, s);
+    draw_text(x + (PANEL_W - PAD_X) * s -
+              draw_text_width("v2", s), y + 6 * s, "v2", dim, s);
+
     draw_rect(x, y + (TITLE_H - 1) * s, PANEL_W * s, s, fg);
 
-    /* tabs */
+    /* Tabs */
     int32_t tw = PANEL_W / TAB_COUNT;
+
     for (int i = 0; i < TAB_COUNT; i++) {
         int32_t tx = x + i * tw * s;
         int32_t textw = draw_text_width(g_tabs[i].name, s);
         int32_t cx = tx + (tw * s - textw) / 2;
+
         if (i == g_tab) {
-            draw_rect(tx + s, y + TITLE_H * s, tw * s - 2 * s, (TAB_H - 1) * s, fg);
-            draw_text(cx, y + (TITLE_H + 4) * s, g_tabs[i].name, bg, s);
+            draw_rect(tx + s, y + TITLE_H * s,
+                      tw * s - 2 * s, (TAB_H - 1) * s, fg);
+
+            draw_text(cx, y + (TITLE_H + 4) * s,
+                      g_tabs[i].name, bg, s);
         } else {
-            draw_text(cx, y + (TITLE_H + 4) * s, g_tabs[i].name, dim, s);
+            draw_text(cx, y + (TITLE_H + 4) * s,
+                      g_tabs[i].name, dim, s);
         }
     }
-    draw_rect(x, y + (TITLE_H + TAB_H - 1) * s, PANEL_W * s, s, dim);
+
+    draw_rect(x, y + (TITLE_H + TAB_H - 1) * s,
+              PANEL_W * s, s, dim);
 
     int32_t body_y = y + (TITLE_H + TAB_H + 6) * s;
     int32_t right = x + (PANEL_W - PAD_X) * s;
@@ -342,51 +429,71 @@ void ui_draw(void) {
     if (g_tab == TAB_INFO) {
         put_info(x, body_y, s, fg);
     } else {
-        for (size_t r = 0; r < MAX_ROWS && g_scroll + r < tab->count; r++) {
+        for (size_t r = 0;
+             r < MAX_ROWS && g_scroll + r < tab->count;
+             r++) {
             size_t idx = g_scroll + r;
             const ui_item_t *it = &tab->items[idx];
+
             int32_t ry = body_y + (int32_t)r * ROW_H * s;
             bool sel = idx == g_sel;
+
             ovl_color_t rfg = sel ? bg : fg;
             ovl_color_t rbg = sel ? fg : bg;
 
             if (sel) {
-                draw_rect(x + 4 * s, ry, (PANEL_W - 8) * s, (ROW_H - 1) * s, fg);
+                draw_rect(x + 4 * s, ry,
+                          (PANEL_W - 8) * s, (ROW_H - 1) * s, fg);
             }
-            draw_text(x + PAD_X * s, ry + 3 * s, it->label, rfg, s);
+
+            draw_text(x + PAD_X * s, ry + 3 * s,
+                      it->label, rfg, s);
 
             switch (it->kind) {
             case IT_TOGGLE:
-                put_toggle(right - 24 * s, ry + 2 * s, s, *it->value != 0, rfg, rbg);
+                put_toggle(right - 24 * s, ry + 2 * s, s,
+                           *it->value != 0, rfg, rbg);
                 break;
+
             case IT_SLIDER:
                 put_slider(right, ry, s, it, rfg, rbg);
                 break;
+
             case IT_CHOICE: {
                 char v[24];
                 v[0] = '\0';
+
                 ovl_cat(v, sizeof v, "< ");
                 ovl_cat(v, sizeof v, it->choices[*it->value - it->min]);
                 ovl_cat(v, sizeof v, " >");
-                draw_text(right - draw_text_width(v, s), ry + 3 * s, v, rfg, s);
+
+                draw_text(right - draw_text_width(v, s),
+                          ry + 3 * s, v, rfg, s);
                 break;
             }
+
             case IT_ACTION:
-                draw_text(right - draw_text_width("[X]", s), ry + 3 * s, "[X]", rfg, s);
+                draw_text(right - draw_text_width("[X]", s),
+                          ry + 3 * s, "[X]", rfg, s);
                 break;
             }
         }
+
         if (tab->count > MAX_ROWS) {
-            draw_text(right - 8 * s, y + (TITLE_H + TAB_H + 6) * s - 8 * s, "...", dim, s);
+            draw_text(right - 8 * s,
+                      y + (TITLE_H + TAB_H + 6) * s - 8 * s,
+                      "...", dim, s);
         }
     }
 
-    /* footer */
+    /* Footer */
     int32_t fy = y + (PANEL_H - FOOT_H) * s;
     draw_rect(x, fy, PANEL_W * s, s, dim);
+
     if (g_toast > 0) {
         draw_text(x + PAD_X * s, fy + 4 * s, g_toast_msg, fg, s);
     } else if (g_ovl_settings.show_hints) {
-        draw_text(x + PAD_X * s, fy + 4 * s, "L1/R1 TAB  X OK  O HIDE", dim, s);
+        draw_text(x + PAD_X * s, fy + 4 * s,
+                  "L1/R1 TAB  X OK  O HIDE", dim, s);
     }
 }
