@@ -201,9 +201,51 @@ static void draw_crosshair(void) {
     }
 }
 
+static int32_t g_banner = 0;
+
+void features_show_banner(void) {
+    g_banner = 360; /* roughly six seconds at 60 fps */
+}
+
+static const char *combo_hint(void) {
+    switch (g_ovl_settings.combo) {
+    case 1:  return "L3+R3";
+    case 2:  return "L1+R1+SQUARE";
+    case 3:  return "TOUCHPAD+OPTIONS";
+    default: return "CIRCLE+TRIANGLE";
+    }
+}
+
+static void draw_banner(void) {
+    if (g_banner <= 0 || !g_ovl_settings.banner) {
+        return;
+    }
+    g_banner--;
+    char line[48];
+    line[0] = '\0';
+    ovl_cat(line, sizeof line, combo_hint());
+    ovl_cat(line, sizeof line, " = MENU");
+
+    const char *title = "OVERLAY ACTIVE";
+    int32_t s = 2;
+    int32_t w1 = draw_text_width(title, s);
+    int32_t w2 = draw_text_width(line, s);
+    int32_t tw = w1 > w2 ? w1 : w2;
+    int32_t pad = 8 * s;
+    int32_t bw = tw + pad * 2;
+    int32_t bh = 2 * 10 * s + pad * 2 - 2 * s;
+    int32_t x = (g_w - bw) / 2;
+    int32_t y = g_h / 12;
+    draw_rect(x - 1, y - 1, bw + 2, bh + 2, WHITE);
+    draw_rect(x, y, bw, bh, BLACK);
+    draw_text(x + (bw - w1) / 2, y + pad - s, title, WHITE, s);
+    draw_text(x + (bw - w2) / 2, y + pad - s + 10 * s, line, WHITE, s);
+}
+
 void features_draw_overlay(void) {
     draw_crosshair();
     draw_hud();
+    draw_banner();
 }
 
 static const char *fmt_name(void) {

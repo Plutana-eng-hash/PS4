@@ -1,8 +1,14 @@
 ; GoldHEN: /data/GoldHEN/plugins.ini
-; [default] loads the overlay in every game as soon as it launches.
+; Loads the overlay for ANY game, so every copy of Minecraft works
+; (US, EU, Asia, disc or digital, any version).
+
 [default]
 /data/GoldHEN/plugins/ps4_overlay_plugin.sprx
 
-; Or limit it to specific titles instead (replace with your title ID):
-; [CUSA00000]
+; To limit it to Minecraft only, delete [default] above and use the IDs below instead
+; (confirmed from the PlayStation Store: CUSA00744 = US, CUSA00265 = EU/Asia):
+;
+; [CUSA00744]
+; /data/GoldHEN/plugins/ps4_overlay_plugin.sprx
+; [CUSA00265]
 ; /data/GoldHEN/plugins/ps4_overlay_plugin.sprx

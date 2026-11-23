@@ -32,6 +32,8 @@ typedef struct {
     int32_t show_hints;
     int32_t block_input;
     int32_t layout;
+    int32_t notify;
+    int32_t banner;
 } ovl_settings_t;
 
 extern ovl_settings_t g_ovl_settings;

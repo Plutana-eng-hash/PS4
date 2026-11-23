@@ -16,6 +16,9 @@ uint32_t features_fps(void);
 /* HUD + crosshair, drawn every frame. */
 void features_draw_overlay(void);
 
+/* Show the 'overlay loaded' banner for a few seconds. */
+void features_show_banner(void);
+
 /* Lines for the INFO tab. Returns false past the last line. */
 bool features_info_line(size_t index, char *buf, size_t len);
 

@@ -30,5 +30,8 @@ void input_feed(const ovl_pad_state_t *s);
 const ovl_pad_state_t *input_state(void);
 /* True once per press of the configured open/close combo. */
 bool input_take_toggle(void);
+/* True while the open/close combo is being held. The pad hook hides input from
+ * the game during this so the combo never leaks into gameplay. */
+bool input_combo_active(void);
 
 #endif

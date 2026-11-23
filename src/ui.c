@@ -73,6 +73,7 @@ static const ui_item_t ITEMS_MENU[] = {
     {"Open combo",   IT_CHOICE, S(combo),       0, 3,   CH_COMBO, 0},
     {"Block input",  IT_TOGGLE, S(block_input), 0, 1,   NULL, 0},
     {"Hints",        IT_TOGGLE, S(show_hints),  0, 1,   NULL, 0},
+    {"Notifications",IT_TOGGLE, S(notify),      0, 1,   NULL, 0},
 };
 
 static const ui_item_t ITEMS_SYS[] = {

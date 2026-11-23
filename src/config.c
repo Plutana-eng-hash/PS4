@@ -46,10 +46,12 @@ static const setting_def_t g_defs[] = {
     {"menu.scale",     &g_ovl_settings.ui_scale,       2, 1, 3},
     {"menu.x",         &g_ovl_settings.menu_x,         4, 0, 100},
     {"menu.y",         &g_ovl_settings.menu_y,        35, 0, 100},
-    {"menu.combo",     &g_ovl_settings.combo,          0, 0, 3},
+    {"menu.combo",     &g_ovl_settings.combo,          3, 0, 3},
     {"menu.hints",     &g_ovl_settings.show_hints,     1, 0, 1},
     {"menu.block_input",&g_ovl_settings.block_input,   1, 0, 1},
     {"render.layout",  &g_ovl_settings.layout,         0, 0, 2},
+    {"notify.enabled", &g_ovl_settings.notify,         1, 0, 1},
+    {"notify.banner",  &g_ovl_settings.banner,         1, 0, 1},
 };
 
 #define DEF_COUNT (sizeof g_defs / sizeof g_defs[0])

@@ -13,16 +13,24 @@ Install
      and copy ovl_config.ini into it.
   3. Auto-launch: add the lines from plugins.ini.example to
      /data/GoldHEN/plugins.ini  ([default] = every game, [CUSAxxxxx] = one game).
-  4. Start a game. The FPS counter shows right away; press Circle + Triangle to open the menu.
+  4. Start Minecraft. You should get a PS notification "PS4 Overlay - Starting. . .", then "Ready" once
+     the first frame is drawn, plus an on-screen OVERLAY ACTIVE banner. Press Touchpad + Options for the menu.
 
 Controls
-  Circle + Triangle   show / hide menu (changeable in MENU > Open combo)
+  Touchpad + Options  show / hide menu (changeable in MENU > Open combo; the game never sees it)
   L1 / R1             previous / next tab
   D-pad up/down       select row
   D-pad left/right    change value
   Cross               toggle / cycle / run
   Circle              close menu
   While the menu is open the game does not receive pad input (MENU > Block input).
+
+Minecraft test checklist
+  - "Starting. . ." notification appears at launch        -> plugin loaded
+  - "Ready" notification + banner after the world/menu draws -> render hook works
+  - FPS box top-right while you play survival            -> overlay drawing works
+  - Touchpad + Options opens the menu without pausing    -> pad hook works
+  - "Failed to start" notification                       -> read ovl.log
 
 If nothing appears
   Open /data/GoldHEN/plugins/ps4_overlay_plugin/ovl.log - it records every step

@@ -4,6 +4,7 @@
 #include "ovl_draw.h"
 #include "ovl_features.h"
 #include "ovl_input.h"
+#include "ovl_notify.h"
 #include "ovl_ui.h"
 #include "ovl_util.h"
 
@@ -65,7 +66,8 @@ static int h_pad_state(int handle, void *data) {
         g_pad_handle = handle;
         g_pad_frame = g_frame;
         input_feed(&s);
-        if (ui_is_visible() && g_ovl_settings.block_input) {
+        /* Hide the open combo from the game, and everything while the menu is up. */
+        if (input_combo_active() || (ui_is_visible() && g_ovl_settings.block_input)) {
             pad_neutralise((uint8_t *)data);
         }
     }
@@ -110,6 +112,11 @@ static void poll_pad_fallback(void) {
 
 static void on_present(int index) {
     g_frame++;
+    if (g_frame == 1) {
+        ovl_log("first frame presented - overlay is live");
+        features_show_banner();
+        notify_send("PS4 Overlay\nReady");
+    }
     features_frame_tick();
     poll_pad_fallback();
     ui_update(input_state());

@@ -36,3 +36,12 @@ bool input_take_toggle(void) {
     g_toggle_pending = false;
     return t;
 }
+
+bool input_combo_active(void) {
+    uint32_t mask = combo_mask();
+    /* Touchpad click is unused in most games, so holding it alone is enough. */
+    if (g_ovl_settings.combo == 3) {
+        return (g_state.buttons & OVL_BTN_TOUCHPAD) != 0;
+    }
+    return (g_state.buttons & mask) == mask;
+}

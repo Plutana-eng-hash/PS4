@@ -17,6 +17,12 @@ HUD (FPS, frame time, resolution, uptime, corner, scale) / SIGHT (crosshair styl
 thickness, gap, color, outline, dot) / MENU (theme, scale, position, open combo, input
 blocking, hints) / INFO (live stats and hook status) / SYS (save, reload, reset, buffer layout).
 
+## Minecraft test profile
+Ships configured for Minecraft (survival): loads for any game (so any copy of Minecraft), shows a
+`Starting. . .` PS notification on load and `Ready` once rendering works, an on-screen banner, and
+opens the menu with Touchpad+Options (Circle/Triangle are drop/inventory in Minecraft). The open combo
+is hidden from the game.
+
 ## Build
 `make` and `make package` with `OO_PS4_TOOLCHAIN` set, or push to GitHub and let the
 workflow build `dist/ps4_overlay_plugin.zip`.
