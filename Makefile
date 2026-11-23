@@ -21,6 +21,7 @@ CFLAGS := --target=x86_64-pc-freebsd12-elf -fPIC -fvisibility=hidden \
 
 LIBS := -L$(OO_PS4_TOOLCHAIN)/lib -lc -lkernel
 LINK_SCRIPT := $(OO_PS4_TOOLCHAIN)/link.x
+CRTLIB := $(wildcard $(OO_PS4_TOOLCHAIN)/lib/crtlib.o)
 
 .PHONY: all clean package check-toolchain
 
@@ -37,7 +38,8 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 
 $(ELF): $(OBJS)
 	@test -f "$(LINK_SCRIPT)" || { echo "Linker script not found: $(LINK_SCRIPT)"; exit 1; }
-	$(LD) -m elf_x86_64 -pie --script $(LINK_SCRIPT) --eh-frame-hdr -e module_start -o $@ $(OBJS) $(LIBS)
+	$(LD) -m elf_x86_64 -pie --script $(LINK_SCRIPT) --eh-frame-hdr -e module_start -o $@ $(OBJS) $(CRTLIB) $(LIBS)
+	@test -n "$(CRTLIB)" || { echo "WARNING: $(OO_PS4_TOOLCHAIN)/lib/crtlib.o not found; PRX will lack OpenOrbis module startup/segments"; }
 	@echo "--- linked output ---"; head -c 16 $@ | od -An -tx1; file $@ || true; readelf -lW $@ || true
 
 OELF := $(BUILD_DIR)/$(TARGET).oelf
